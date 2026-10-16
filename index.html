@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Трекер заходів · 19.10–07.11.2026</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    :root { --period-start: 1729292400000; --period-end: 1731020400000; }
+    .gantt-bar { height: 16px; border-radius: 4px; min-width: 4px; transition: width 0.3s; }
+    .status-done   { background: #22c55e; }
+    .status-active { background: #3b82f6; }
+    .status-late   { background: #ef4444; }
+    .status-todo   { background: #94a3b8; }
+    input[type=range] { accent-color: var(--primary, #3b82f6); }
+    .tab-btn.active { border-bottom: 2px solid var(--primary, #3b82f6); color: var(--primary, #3b82f6); font-weight: 600; }
+    .direction-badge { font-size: 11px; padding: 2px 7px; border-radius: 99px; white-space: nowrap; }
+    tr:hover td { background: var(--accent, rgba(99,102,241,0.07)) !important; }
+  </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased">
+
+<div class="max-w-7xl mx-auto p-4 space-y-5">
+
+  <!-- ── HEADER ── -->
+  <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+    <div class="flex-1">
+      <h1 class="text-xl font-bold text-[var(--foreground)]">📋 Трекер виконання заходів</h1>
+      <p class="text-sm text-[var(--muted-foreground)] mt-1">Період: <strong>19.10.2026 — 07.11.2026</strong> · Всього заходів: <strong>26</strong></p>
+    </div>
+    <div class="flex flex-col items-end gap-1">
+      <span class="text-sm text-[var(--muted-foreground)]">Загальний прогрес</span>
+      <div class="flex items-center gap-3">
+        <div class="w-48 h-4 bg-[var(--border)] rounded-full overflow-hidden">
+          <div id="total-bar" class="h-full bg-[var(--primary,#3b82f6)] rounded-full transition-all duration-500" style="width:0%"></div>
+        </div>
+        <span id="total-pct" class="text-lg font-bold text-[var(--foreground)]">0%</span>
+      </div>
+      <span id="done-count" class="text-xs text-[var(--muted-foreground)]">0 / 26 виконано</span>
+    </div>
+  </div>
+
+  <!-- ── SUMMARY CARDS ── -->
+  <div id="cards" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3"></div>
+
+  <!-- ── TABS ── -->
+  <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl overflow-hidden">
+    <div class="flex border-b border-[var(--border)] px-4 gap-6 overflow-x-auto">
+      <button onclick="showTab('tracker')" id="tab-tracker" class="tab-btn active py-3 text-sm transition-colors whitespace-nowrap">📝 Трекер заходів</button>
+      <button onclick="showTab('gantt')"   id="tab-gantt"   class="tab-btn py-3 text-sm transition-colors whitespace-nowrap text-[var(--muted-foreground)]">📅 Часова шкала</button>
+    </div>
+
+    <!-- TRACKER TAB -->
+    <div id="pane-tracker" class="overflow-x-auto">
+      <table class="w-full text-sm border-collapse">
+        <thead>
+          <tr class="bg-[var(--sidebar,var(--card))] text-[var(--muted-foreground)] text-xs uppercase tracking-wide">
+            <th class="px-3 py-3 text-left w-8">№</th>
+            <th class="px-3 py-3 text-left">Захід</th>
+            <th class="px-3 py-3 text-left hidden md:table-cell">Завдання</th>
+            <th class="px-3 py-3 text-center w-20">Термін</th>
+            <th class="px-3 py-3 text-center w-24">Виконання</th>
+            <th class="px-3 py-3 text-center w-14">✓</th>
+          </tr>
+        </thead>
+        <tbody id="tracker-body"></tbody>
+      </table>
+    </div>
+
+    <!-- GANTT TAB -->
+    <div id="pane-gantt" class="hidden p-4 space-y-2">
+      <div class="flex text-xs text-[var(--muted-foreground)] mb-3 pl-52">
+        <span class="flex-1 text-left">19.10</span>
+        <span class="flex-1 text-center">28.10</span>
+        <span class="flex-1 text-right">07.11</span>
+      </div>
+      <div id="gantt-rows" class="space-y-1"></div>
+    </div>
+  </div>
+
+  <!-- ── FOOTER ── -->
+  <p class="text-xs text-[var(--muted-foreground)] text-center pb-4">Прогрес зберігається локально у браузері · Оновлено: <span id="last-saved">—</span></p>
+</div>
+
+<script>
+const TASKS = [
+  {id:1,  dir:'Загальні показники',       name:'Положення про підрозділ',       task:'Актуалізувати та затвердити положення',                        start:'2026-10-19', end:'2026-10-25', kpi:'100% положень затверджено'},
+  {id:2,  dir:'Загальні показники',       name:'Функціональні обов\'язки',       task:'Актуалізувати посадові обов\'язки',                             start:'2026-10-19', end:'2026-10-25', kpi:'100% посад затверджено'},
+  {id:3,  dir:'Загальні показники',       name:'Стан комплектування',            task:'Подати пропозиції на комплектування',                          start:'2026-10-19', end:'2026-11-07', kpi:'Укомплектованість ≥75%'},
+  {id:4,  dir:'Загальні показники',       name:'⚡ Доведення наказів МОУ',        task:'Доведення наказів, провести заняття та перевірку знань',       start:'2026-10-19', end:'2026-10-22', kpi:'100% ознайомлених'},
+  {id:5,  dir:'Організація впровадження', name:'Плани впровадження',             task:'Розробити та затвердити плани',                                start:'2026-10-19', end:'2026-10-24', kpi:'100% систем мають план'},
+  {id:6,  dir:'Організація впровадження', name:'Навчальні збори / вебінари',     task:'Провести (взяти участь) у навчальних зборах',                  start:'2026-10-20', end:'2026-10-28', kpi:'80% учасників навчені'},
+  {id:7,  dir:'Організація впровадження', name:'Дотримання термінів',            task:'Запровадити щоденний контроль',                                start:'2026-10-19', end:'2026-11-07', kpi:'90% заходів вчасно'},
+  {id:8,  dir:'Організація впровадження', name:'Навчання користувачів',          task:'Організувати навчання',                                        start:'2026-10-21', end:'2026-11-05', kpi:'85% навчені'},
+  {id:9,  dir:'Організація впровадження', name:'Моніторинг метрик',              task:'Створити щомісячний контроль метрик',                          start:'2026-10-24', end:'2026-11-07', kpi:'Звіт по метриках'},
+  {id:10, dir:'Зворотній зв\'язок',       name:'Збір зворотного зв\'язку',       task:'Створити реєстр звернень',                                     start:'2026-10-19', end:'2026-10-24', kpi:'100% звернень враховані'},
+  {id:11, dir:'Зворотній зв\'язок',       name:'Оформлення скарг',               task:'Впровадити шаблон звернення',                                  start:'2026-10-19', end:'2026-10-24', kpi:'100% за шаблоном'},
+  {id:12, dir:'Зворотній зв\'язок',       name:'Облік пропозицій',               task:'Вести електронний журнал',                                     start:'2026-10-24', end:'2026-11-07', kpi:'Журнал актуальний'},
+  {id:13, dir:'Зворотній зв\'язок',       name:'Аналіз оновлень',                task:'Проводити аналіз після оновлень',                              start:'2026-10-24', end:'2026-11-07', kpi:'100% оновлень'},
+  {id:14, dir:'Проблеми та процеси',      name:'Сесії з підрозділами',           task:'Щомісячні наради',                                             start:'2026-10-20', end:'2026-11-07', kpi:'≥2 сесій'},
+  {id:15, dir:'Проблеми та процеси',      name:'Опис проблем',                   task:'Запровадити картку проблеми',                                  start:'2026-10-20', end:'2026-10-30', kpi:'100% описані'},
+  {id:16, dir:'Проблеми та процеси',      name:'Опис процесів',                  task:'Описати ключові процеси',                                      start:'2026-10-20', end:'2026-11-05', kpi:'≥5 процесів'},
+  {id:17, dir:'Проблеми та процеси',      name:'Пропозиції',                     task:'Напрацьовувати рішення',                                       start:'2026-10-20', end:'2026-11-05', kpi:'1 пропозиція/проблему'},
+  {id:18, dir:'Проблеми та процеси',      name:'Ескалація проблем',              task:'Подання до вищого органу',                                     start:'2026-11-01', end:'2026-11-07', kpi:'Щомісячний реєстр'},
+  {id:19, dir:'Дашборди',                 name:'Карта потоків даних',            task:'Створити карту даних',                                         start:'2026-10-19', end:'2026-10-30', kpi:'100% карт створено'},
+  {id:20, dir:'Дашборди',                 name:'Інформаційний обмін',            task:'Описати потоки даних',                                         start:'2026-10-19', end:'2026-10-30', kpi:'Реєстр обмінів'},
+  {id:21, dir:'Дашборди',                 name:'Операційна аналітика',           task:'Створити 3 дашборди',                                          start:'2026-10-24', end:'2026-11-05', kpi:'≥2 дашборди'},
+  {id:22, dir:'Дашборди',                 name:'Удосконалення аналітики',        task:'Зібрати пропозиції щодо розвитку',                             start:'2026-11-01', end:'2026-11-07', kpi:'5 пропозицій'},
+  {id:23, dir:'Депаперизація',            name:'Сесії по звітності',             task:'Провести інвентаризацію',                                      start:'2026-10-19', end:'2026-10-30', kpi:'Перелік сформовано'},
+  {id:24, dir:'Депаперизація',            name:'Аналіз потоків',                 task:'Визначити дублювання',                                         start:'2026-10-24', end:'2026-11-03', kpi:'20% дублюючих звітів'},
+  {id:25, dir:'Депаперизація',            name:'Пропозиції щодо скасування',     task:'Підготувати пакет пропозицій',                                 start:'2026-11-01', end:'2026-11-05', kpi:'До 5 пропозицій'},
+  {id:26, dir:'Депаперизація',            name:'Ескалація пропозицій',           task:'Подати до вищого органу',                                      start:'2026-11-05', end:'2026-11-07', kpi:'100% подано'},
+];
+
+const DIR_META = {
+  'Загальні показники':       { color:'#818cf8', bg:'#eef2ff', emoji:'📌' },
+  'Організація впровадження': { color:'#f59e0b', bg:'#fffbeb', emoji:'⚙️' },
+  'Зворотній зв\'язок':       { color:'#22c55e', bg:'#f0fdf4', emoji:'💬' },
+  'Проблеми та процеси':      { color:'#f97316', bg:'#fff7ed', emoji:'🔧' },
+  'Дашборди':                 { color:'#a855f7', bg:'#faf5ff', emoji:'📊' },
+  'Депаперизація':            { color:'#0ea5e9', bg:'#f0f9ff', emoji:'📄' },
+};
+
+const PERIOD_START = new Date('2026-10-19').getTime();
+const PERIOD_END   = new Date('2026-11-07').getTime();
+const PERIOD_LEN   = PERIOD_END - PERIOD_START;
+
+// ── State ──────────────────────────────────────────────────────────────────
+let state = {};
+function loadState() {
+  try { state = JSON.parse(localStorage.getItem('zaхody_tracker') || '{}'); } catch(e) { state = {}; }
+}
+function saveState() {
+  localStorage.setItem('zaхody_tracker', JSON.stringify(state));
+  document.getElementById('last-saved').textContent = new Date().toLocaleTimeString('uk-UA');
+}
+function getTask(id) { return state[id] || { pct: 0, done: false }; }
+function setTask(id, pct, done) { state[id] = { pct, done }; saveState(); updateSummary(); }
+
+// ── Render cards ───────────────────────────────────────────────────────────
+function renderCards() {
+  const container = document.getElementById('cards');
+  const dirs = Object.keys(DIR_META);
+  container.innerHTML = dirs.map(dir => {
+    const tasks = TASKS.filter(t => t.dir === dir);
+    const m = DIR_META[dir];
+    return `
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 space-y-2" id="card-${dir.replace(/\s/g,'_')}">
+        <div class="flex items-center gap-2">
+          <span class="text-base">${m.emoji}</span>
+          <span class="text-xs font-semibold text-[var(--foreground)] leading-tight">${dir}</span>
+        </div>
+        <div class="text-xs text-[var(--muted-foreground)]">${tasks.length} заходів</div>
+        <div class="w-full h-2 bg-[var(--border)] rounded-full overflow-hidden">
+          <div id="bar-${dir.replace(/\s/g,'_')}" class="h-full rounded-full transition-all duration-500" style="width:0%;background:${m.color}"></div>
+        </div>
+        <div id="pct-${dir.replace(/\s/g,'_')}" class="text-xs font-bold" style="color:${m.color}">0%</div>
+      </div>`;
+  }).join('');
+}
+
+// ── Render tracker ─────────────────────────────────────────────────────────
+function renderTracker() {
+  const tbody = document.getElementById('tracker-body');
+  const today = new Date();
+  let lastDir = null;
+
+  tbody.innerHTML = TASKS.map(t => {
+    const m = DIR_META[t.dir];
+    const ts = getTask(t.id);
+    const endDate = new Date(t.end);
+    const isLate = !ts.done && endDate < today;
+    const isDirHeader = t.dir !== lastDir;
+    lastDir = t.dir;
+
+    const headerRow = isDirHeader ? `
+      <tr>
+        <td colspan="6" class="px-3 py-2 text-xs font-bold uppercase tracking-wider" style="background:${m.bg};color:${m.color};border-top:2px solid ${m.color}">
+          ${m.emoji} ${t.dir}
+        </td>
+      </tr>` : '';
+
+    const endStr = t.end.slice(5).replace('-','.');
+    const rowBg  = ts.done ? 'opacity-50' : '';
+
+    return `${headerRow}
+    <tr class="${rowBg} transition-opacity" id="row-${t.id}">
+      <td class="px-3 py-2 text-center font-bold text-[var(--muted-foreground)] text-xs">${t.id}</td>
+      <td class="px-3 py-2">
+        <div class="font-medium text-[var(--foreground)] text-sm ${ts.done ? 'line-through' : ''}">${t.name}</div>
+        <div class="text-xs text-[var(--muted-foreground)] mt-0.5">KPI: ${t.kpi}</div>
+      </td>
+      <td class="px-3 py-2 text-xs text-[var(--muted-foreground)] hidden md:table-cell max-w-xs">${t.task}</td>
+      <td class="px-3 py-2 text-center">
+        <span class="text-xs font-medium ${isLate ? 'text-red-500 font-bold' : 'text-[var(--muted-foreground)]'}">
+          ${isLate ? '⚠️ ' : ''}${endStr}
+        </span>
+      </td>
+      <td class="px-3 py-2">
+        <div class="flex flex-col items-center gap-1">
+          <input type="range" min="0" max="100" step="5" value="${ts.pct}"
+            class="w-20" oninput="onSlider(${t.id}, this.value, event)">
+          <span id="spct-${t.id}" class="text-xs font-bold" style="color:${m.color}">${ts.pct}%</span>
+        </div>
+      </td>
+      <td class="px-3 py-2 text-center">
+        <input type="checkbox" ${ts.done ? 'checked' : ''} class="w-4 h-4 cursor-pointer"
+          onchange="onCheck(${t.id}, this.checked)">
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Render Gantt ───────────────────────────────────────────────────────────
+function renderGantt() {
+  const container = document.getElementById('gantt-rows');
+  container.innerHTML = TASKS.map(t => {
+    const m = DIR_META[t.dir];
+    const ts = getTask(t.id);
+    const s = new Date(t.start).getTime();
+    const e = new Date(t.end).getTime();
+    const left  = ((s - PERIOD_START) / PERIOD_LEN * 100).toFixed(1);
+    const width = ((e - s) / PERIOD_LEN * 100).toFixed(1);
+    return `
+      <div class="flex items-center gap-2 h-7">
+        <div class="w-48 shrink-0 text-xs text-right text-[var(--muted-foreground)] truncate pr-2">${t.id}. ${t.name}</div>
+        <div class="flex-1 relative h-4 bg-[var(--border)] rounded-full overflow-hidden">
+          <div class="absolute h-full rounded-full opacity-90 transition-all"
+            style="left:${left}%;width:${width}%;background:${ts.done ? '#22c55e' : m.color}"></div>
+        </div>
+        <span class="text-xs w-8 text-right font-bold" style="color:${m.color}">${ts.pct}%</span>
+      </div>`;
+  }).join('');
+}
+
+// ── Update summary ─────────────────────────────────────────────────────────
+function updateSummary() {
+  const total   = TASKS.length;
+  const doneAll = TASKS.filter(t => getTask(t.id).done).length;
+  const avgPct  = Math.round(TASKS.reduce((s, t) => s + getTask(t.id).pct, 0) / total);
+
+  document.getElementById('total-bar').style.width = avgPct + '%';
+  document.getElementById('total-pct').textContent = avgPct + '%';
+  document.getElementById('done-count').textContent = `${doneAll} / ${total} виконано`;
+
+  // Direction cards
+  Object.keys(DIR_META).forEach(dir => {
+    const key = dir.replace(/\s/g,'_');
+    const tasks = TASKS.filter(t => t.dir === dir);
+    const avg = Math.round(tasks.reduce((s,t) => s + getTask(t.id).pct, 0) / tasks.length);
+    const barEl = document.getElementById('bar-' + key);
+    const pctEl = document.getElementById('pct-' + key);
+    if (barEl) barEl.style.width = avg + '%';
+    if (pctEl) pctEl.textContent = avg + '%';
+  });
+
+  // Re-render gantt bars inline
+  renderGantt();
+}
+
+// ── Events ─────────────────────────────────────────────────────────────────
+function onSlider(id, val, e) {
+  val = parseInt(val);
+  const ts = getTask(id);
+  const done = val === 100;
+  document.getElementById('spct-' + id).textContent = val + '%';
+  const cb = e.target.closest('tr').querySelector('input[type=checkbox]');
+  if (cb) cb.checked = done;
+  const row = document.getElementById('row-' + id);
+  if (row) row.classList.toggle('opacity-50', done);
+  setTask(id, val, done);
+}
+
+function onCheck(id, checked) {
+  const ts = getTask(id);
+  const pct = checked ? 100 : ts.pct === 100 ? 0 : ts.pct;
+  const row = document.getElementById('row-' + id);
+  const slider = row ? row.querySelector('input[type=range]') : null;
+  const pctEl  = document.getElementById('spct-' + id);
+  if (slider) slider.value = pct;
+  if (pctEl)  pctEl.textContent = pct + '%';
+  if (row)    row.classList.toggle('opacity-50', checked);
+  const nameEl = row ? row.querySelector('.font-medium') : null;
+  if (nameEl) nameEl.classList.toggle('line-through', checked);
+  setTask(id, pct, checked);
+}
+
+function showTab(name) {
+  ['tracker','gantt'].forEach(t => {
+    document.getElementById('pane-' + t).classList.toggle('hidden', t !== name);
+    const btn = document.getElementById('tab-' + t);
+    btn.classList.toggle('active', t === name);
+    btn.classList.toggle('text-[var(--muted-foreground)]', t !== name);
+  });
+  if (name === 'gantt') renderGantt();
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+loadState();
+renderCards();
+renderTracker();
+updateSummary();
+</script>
+</body>
+</html>
